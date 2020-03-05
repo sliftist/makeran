@@ -1,0 +1,10 @@
+{
+  "name": "makeran",
+  "version": "0.0.1",
+  "main": "index.js",
+  "author": "sliftist <sliftist@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "js-sha512": "^0.8.0"
+  }
+}
