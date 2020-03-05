@@ -133,7 +133,7 @@ async function runOnFileNameInner(fileName) {
     try {
         contents = (await readFilePromise(filePath)).toString("utf8");
         stats = await statFilePromise(filePath);
-    } catch { return; }
+    } catch(e) { return; }
 
     function getHash(contents) {
         let values = getCommentValueLookup(contents);
@@ -172,7 +172,7 @@ async function runOnFileNameInner(fileName) {
         try {
             contents = (await readFilePromise(filePath)).toString("utf8");
             testCurOutputValues = getCommentValueLookup(contents);
-        } catch { }
+        } catch(e) { }
         let shouldKill = "stop" in testCurOutputValues;
         if(shouldKill) {
             console.log(`Trying to stop previous run of file ${fileName}`);
