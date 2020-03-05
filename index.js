@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 const fs = require("fs");
 const sha512 = require("js-sha512");
 const child_process = require("child_process");
