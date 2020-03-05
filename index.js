@@ -3,12 +3,13 @@
 const fs = require("fs");
 const sha512 = require("js-sha512");
 const child_process = require("child_process");
+const path = require("path");
 
-let path = process.argv[2];
+let scriptFolder = process.argv[2];
 
-function readFilePromise(path) {
+function readFilePromise(scriptFolder) {
     return new Promise((resolve, reject) => {
-        fs.readFile(path, (err, data) => {
+        fs.readFile(scriptFolder, (err, data) => {
             err ? reject(err) : resolve(data);
         });
     });
@@ -125,7 +126,7 @@ async function runOnFileName(fileName) {
 }
 async function runOnFileNameInner(fileName) {
 
-    let filePath = path + "/" + fileName;
+    let filePath = scriptFolder + "/" + fileName;
     /** @type {string} */
     let contents;
     /** @type {fs.Stats} */
@@ -161,9 +162,31 @@ async function runOnFileNameInner(fileName) {
 
     console.log(`Rerunning ${fileName}`);
 
+    let onDone;
+    let promise = new Promise((resolve, reject) => onDone = resolve);
+
     let output = "\n";
     let proc = child_process.fork(filePath, [], { stdio: "pipe" });
     let done = false;
+
+    proc.on("error", err => {
+        output += `\nEnding with error ${err}\n`;
+        onDone();
+    })
+    proc.on("exit", code => {
+        if(code !== 0) {
+            output += `\nExit code non-0, was ${code}\n`;
+        }
+    });
+    proc.stdout.on("end", () => {
+        onDone();
+    });
+    proc.stdout.on("data", (data) => {
+        output += data.toString("utf8");
+    });
+    proc.stderr.on("err", (data) => {
+        output += data.toString("utf8");
+    });
 
     async function writeContents() {
         if(done) return;
@@ -191,6 +214,7 @@ async function runOnFileNameInner(fileName) {
                 throw new Error(`Our file change will trigger a hash change, so our change is invalid.`);
             }
         }
+        //console.log(`Writing ${contents.length} to ${path.resolve(filePath)}, output length ${output.length}`);
         await writeFilePromise(filePath, contents);
 
         if(shouldKill) {
@@ -205,34 +229,17 @@ async function runOnFileNameInner(fileName) {
         }
     })();
 
-    await new Promise((resolve, reject) => {
-        proc.on("error", err => {
-            output += `\nEnding with error ${err}\n`;
-            resolve();
-        })
-        proc.on("exit", code => {
-            if(code !== 0) {
-                output += `\nExit code non-0, was ${code}\n`;
-            }
-            resolve();
-        });
-        proc.stdout.on("data", (data) => {
-            output += data.toString("utf8");
-        });
-        proc.stderr.on("err", (data) => {
-            output += data.toString("utf8");
-        });
-    });
+    await promise;
 
     if(!done) {
-        done = true;
         console.log(`Finished ${fileName}`);
         await writeContents();
+        done = true;
     }
 }
 
-fs.watch(path, async (change, fileName) => { runOnFileName(fileName); });
+fs.watch(scriptFolder, async (change, fileName) => { runOnFileName(fileName); });
 
-for(let startFileName of fs.readdirSync(path)) {
+for(let startFileName of fs.readdirSync(scriptFolder)) {
     runOnFileName(startFileName);
 }
